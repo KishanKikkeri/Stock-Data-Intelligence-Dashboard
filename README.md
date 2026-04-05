@@ -242,12 +242,6 @@ corr_matrix = pivot.corr()
 - **Correlation cache** — computed once at startup and stored as a JSON blob to
   avoid expensive re-computation on every `/compare` call.
 
----
-
-## 📬 Submission
-
-Built for JarNox internship assignment.  
-Submitted to: support@jarnox.com  
 
 ---
 
