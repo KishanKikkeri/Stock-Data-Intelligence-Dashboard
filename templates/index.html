@@ -46,7 +46,7 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  cursor: crosshair;
+  cursor: default;
 }
 
 /* BG GRID */
@@ -60,7 +60,7 @@ body::before {
 }
 /* CRT scanlines */
 body::after {
-  content:''; position:fixed; inset:0; pointer-events:none; z-index:9999;
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
   background: repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.07) 3px,rgba(0,0,0,0.07) 4px);
   animation: flicker 10s infinite;
 }
@@ -70,7 +70,7 @@ body::after {
 #tickerBar {
   height:28px; flex-shrink:0;
   background:var(--deep); border-bottom:1px solid var(--border2);
-  overflow:hidden; position:relative; z-index:10;
+  overflow:hidden; position:relative; z-index:3;
   display:flex; align-items:center;
 }
 .ticker-track {
@@ -99,7 +99,7 @@ body::after {
   height:52px; flex-shrink:0;
   background:var(--deep); border-bottom:2px solid var(--border2);
   display:flex; align-items:center; padding:0 20px; gap:18px;
-  position:relative; z-index:10;
+  position:relative; z-index:3;
 }
 .logo-block { display:flex; flex-direction:column; gap:1px; margin-right:6px; }
 .logo-main {
@@ -134,7 +134,7 @@ body::after {
   flex:1; overflow:hidden;
   display:grid;
   grid-template-columns:238px 1fr 272px;
-  position:relative; z-index:1;
+  position:relative; z-index:2;
 }
 
 /* ── SIDEBAR ── */
@@ -164,7 +164,7 @@ body::after {
 
 .wl-item {
   padding:10px 14px; cursor:pointer;
-  border-left:3px solid transparent; transition:all .12s; position:relative;
+  border-left:3px solid transparent; transition:all .12s; position:relative; z-index:2;
 }
 .wl-item::after {
   content:''; position:absolute; inset:0; opacity:0;

@@ -9,4 +9,4 @@ router = APIRouter()
 
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
 def dashboard(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
