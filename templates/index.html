@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>JarNox · Stock Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #070b0f;
+    --bg2:       #0d1219;
+    --bg3:       #111820;
+    --panel:     #131c27;
+    --border:    #1e2d3d;
+    --border2:   #253545;
+    --accent:    #00e5a0;
+    --accent2:   #0ff;
+    --red:       #ff4d6a;
+    --yellow:    #ffc94d;
+    --text:      #c8d8e8;
+    --text2:     #6e8a9e;
+    --text3:     #3d5468;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'Space Grotesk', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 260px 1fr;
+    grid-template-areas: "header header" "sidebar main";
+    overflow: hidden;
+  }
+
+  /* ─── HEADER ─────────────────────────────────── */
+  header {
+    grid-area: header;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    position: relative;
+  }
+  .logo {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%;
+    box-shadow: 0 0 8px var(--accent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .header-subtitle {
+    font-size: 11px; color: var(--text3); font-family: var(--mono);
+    letter-spacing: .06em; text-transform: uppercase;
+  }
+  .header-time {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    letter-spacing: .05em;
+  }
+  .market-status {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; font-family: var(--mono); color: var(--accent);
+    background: rgba(0,229,160,.07); border: 1px solid rgba(0,229,160,.2);
+    padding: 3px 10px; border-radius: 3px;
+  }
+  .status-dot { width:6px; height:6px; background:var(--accent);
+    border-radius:50%; box-shadow: 0 0 6px var(--accent); }
+
+  /* ─── SIDEBAR ────────────────────────────────── */
+  aside {
+    grid-area: sidebar;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .sidebar-title {
+    font-size: 10px; font-family: var(--mono); color: var(--text3);
+    text-transform: uppercase; letter-spacing: .1em;
+  }
+  .filter-row { display: flex; gap: 6px; }
+  .filter-btn {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text2); font-size: 10px; font-family: var(--mono);
+    padding: 4px 0; border-radius: 3px; cursor: pointer;
+    transition: all .15s; text-transform: uppercase; letter-spacing: .06em;
+  }
+  .filter-btn.active, .filter-btn:hover {
+    background: rgba(0,229,160,.1); border-color: var(--accent);
+    color: var(--accent);
+  }
+  .company-list { overflow-y: auto; flex: 1; padding: 8px 0; }
+  .company-list::-webkit-scrollbar { width: 4px; }
+  .company-list::-webkit-scrollbar-track { background: transparent; }
+  .company-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .company-item {
+    padding: 11px 16px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all .15s;
+    position: relative;
+  }
+  .company-item:hover { background: rgba(255,255,255,.03); }
+  .company-item.active {
+    background: rgba(0,229,160,.06);
+    border-left-color: var(--accent);
+  }
+  .ci-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .ci-symbol { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
+  .ci-price { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  .ci-name { font-size: 10px; color: var(--text3); margin-top: 2px; }
+  .ci-bottom { display: flex; justify-content: space-between; margin-top: 4px; }
+  .ci-sector { font-size: 9px; color: var(--text3); font-family: var(--mono);
+    text-transform: uppercase; letter-spacing: .05em; }
+  .ci-return { font-family: var(--mono); font-size: 11px; font-weight: 500; }
+  .up { color: var(--accent); }
+  .down { color: var(--red); }
+
+  /* ─── MAIN ───────────────────────────────────── */
+  main {
+    grid-area: main;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  main::-webkit-scrollbar { width: 4px; }
+  main::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* ─── KPI ROW ─────────────────────────────────── */
+  .kpi-row { display: grid; grid-template-columns: repeat(5,1fr); gap: 10px; }
+  .kpi-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 16px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .kpi-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+    opacity: .5;
+  }
+  .kpi-label { font-size: 10px; color: var(--text3); font-family: var(--mono);
+    text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .kpi-value { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+  .kpi-sub { font-size: 10px; color: var(--text2); margin-top: 4px; font-family: var(--mono); }
+
+  /* ─── CHART PANEL ─────────────────────────────── */
+  .chart-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .panel-sub { font-size: 11px; color: var(--text2); margin-left: auto; font-family: var(--mono); }
+  .time-filters { display: flex; gap: 4px; }
+  .tf-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text2); font-size: 10px; font-family: var(--mono);
+    padding: 3px 8px; border-radius: 3px; cursor: pointer;
+    transition: all .15s; text-transform: uppercase;
+  }
+  .tf-btn.active, .tf-btn:hover {
+    background: rgba(0,229,160,.1); border-color: var(--accent); color: var(--accent);
+  }
+  .chart-body { padding: 16px 20px; position: relative; }
+  .chart-wrap { height: 240px; position: relative; }
+
+  /* ─── BOTTOM GRID ─────────────────────────────── */
+  .bottom-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  /* ─── TABLE ───────────────────────────────────── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono); }
+  .data-table th {
+    text-align: left; padding: 8px 12px;
+    color: var(--text3); text-transform: uppercase;
+    letter-spacing: .07em; font-size: 9px; border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  .data-table td { padding: 7px 12px; border-bottom: 1px solid rgba(30,45,61,.5); color: var(--text); }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,.02); }
+
+  /* ─── COMPARE PANEL ──────────────────────────── */
+  .compare-inputs { display: flex; gap: 8px; align-items: center; padding: 12px 20px; border-bottom: 1px solid var(--border); }
+  .compare-inputs select {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 12px;
+    padding: 6px 10px; border-radius: 4px; outline: none; cursor: pointer;
+  }
+  .compare-inputs select:focus { border-color: var(--accent); }
+  .vs-label { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .cmp-btn {
+    background: rgba(0,229,160,.12); border: 1px solid var(--accent);
+    color: var(--accent); font-family: var(--mono); font-size: 11px;
+    padding: 6px 14px; border-radius: 4px; cursor: pointer;
+    transition: all .15s; letter-spacing: .05em;
+  }
+  .cmp-btn:hover { background: rgba(0,229,160,.22); }
+  .compare-result { padding: 16px 20px; }
+  .corr-row { display: flex; gap: 16px; align-items: center; margin-top: 12px; }
+  .corr-bar-wrap { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .corr-bar { height: 100%; background: linear-gradient(90deg,var(--accent2),var(--accent)); border-radius: 3px; transition: width .6s ease; }
+  .corr-label { font-family: var(--mono); font-size: 11px; color: var(--text2); white-space: nowrap; }
+  .compare-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .cmp-col { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 12px; }
+  .cmp-col-title { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+  .cmp-metric { display: flex; justify-content: space-between; font-size: 11px; font-family: var(--mono); padding: 4px 0; border-bottom: 1px solid rgba(30,45,61,.6); }
+  .cmp-metric:last-child { border: none; }
+  .cmp-key { color: var(--text3); }
+  .cmp-val { color: var(--text); }
+
+  /* ─── LOADING / EMPTY ─────────────────────────── */
+  .loading {
+    display: flex; align-items: center; justify-content: center;
+    height: 200px; flex-direction: column; gap: 12px; color: var(--text2);
+  }
+  .spinner {
+    width: 24px; height: 24px; border: 2px solid var(--border2);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { text-align: center; padding: 40px; color: var(--text3); font-size: 12px; font-family: var(--mono); }
+
+  /* ─── SECTOR BARS ─────────────────────────────── */
+  .sector-bar-row { display: flex; align-items: center; gap: 10px; padding: 7px 0;
+    border-bottom: 1px solid rgba(30,45,61,.4); }
+  .sector-bar-row:last-child { border: none; }
+  .sector-name { font-size: 10px; font-family: var(--mono); color: var(--text2); width: 80px; flex-shrink: 0; }
+  .sector-bar-bg { flex:1; height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+  .sector-bar-fill { height:100%; border-radius:3px; transition: width .7s ease; }
+  .sector-val { font-family:var(--mono); font-size:10px; width:54px; text-align:right; }
+
+  /* ─── SCAN LINE EFFECT ────────────────────────── */
+  body::after {
+    content:''; position:fixed; inset:0; pointer-events:none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.04) 2px, rgba(0,0,0,.04) 4px);
+    z-index: 9999;
+  }
+
+  /* ─── TOAST ───────────────────────────────────── */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 10000;
+    background: var(--panel); border: 1px solid var(--accent);
+    color: var(--accent); font-family: var(--mono); font-size: 12px;
+    padding: 10px 18px; border-radius: 5px; opacity: 0;
+    transition: opacity .3s; pointer-events: none;
+    box-shadow: 0 0 20px rgba(0,229,160,.15);
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo"><div class="logo-dot"></div>JARNOX</div>
+  <div class="header-subtitle">/ Stock Intelligence Dashboard</div>
+  <div class="market-status"><div class="status-dot"></div>NSE LIVE</div>
+  <div class="header-time" id="clock">--:--:--</div>
+</header>
+
+<!-- SIDEBAR -->
+<aside>
+  <div class="sidebar-header">
+    <div class="sidebar-title">Watchlist</div>
+    <div class="filter-row" id="sectorFilter">
+      <button class="filter-btn active" data-sector="ALL">ALL</button>
+      <button class="filter-btn" data-sector="IT">IT</button>
+      <button class="filter-btn" data-sector="Banking">Bank</button>
+      <button class="filter-btn" data-sector="Finance">Finance</button>
+    </div>
+  </div>
+  <div class="company-list" id="companyList">
+    <div class="loading"><div class="spinner"></div><span>Loading…</span></div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main id="mainContent">
+  <!-- Welcome splash -->
+  <div id="welcomePane" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;opacity:.4;">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:.1em;text-transform:uppercase;">Select a company to begin analysis</div>
+    <div style="font-size:48px;line-height:1;">📈</div>
+  </div>
+
+  <div id="dashPane" style="display:none;flex-direction:column;gap:16px;">
+    <!-- KPI ROW -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-label">Latest Close</div>
+        <div class="kpi-value" id="kpiClose">—</div>
+        <div class="kpi-sub" id="kpiDate">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">52W High</div>
+        <div class="kpi-value up" id="kpiHigh">—</div>
+        <div class="kpi-sub">52-week peak</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">52W Low</div>
+        <div class="kpi-value down" id="kpiLow">—</div>
+        <div class="kpi-sub">52-week trough</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Return</div>
+        <div class="kpi-value" id="kpiReturn">—</div>
+        <div class="kpi-sub">daily avg %</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Volatility</div>
+        <div class="kpi-value" id="kpiVol">—</div>
+        <div class="kpi-sub">14-day σ score</div>
+      </div>
+    </div>
+
+    <!-- PRICE CHART -->
+    <div class="chart-panel">
+      <div class="panel-header">
+        <div class="panel-title" id="chartTitle">Price Chart</div>
+        <div class="time-filters">
+          <button class="tf-btn active" data-days="30">30D</button>
+          <button class="tf-btn" data-days="60">60D</button>
+          <button class="tf-btn" data-days="90">90D</button>
+          <button class="tf-btn" data-days="180">6M</button>
+          <button class="tf-btn" data-days="365">1Y</button>
+        </div>
+        <div class="panel-sub" id="chartSub">—</div>
+      </div>
+      <div class="chart-body">
+        <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ROW -->
+    <div class="bottom-grid">
+
+      <!-- Gainers/Losers table -->
+      <div class="chart-panel">
+        <div class="panel-header">
+          <button class="tf-btn active" id="glToggle" onclick="toggleGainersLosers()">Top Gainers</button>
+          <div class="panel-sub" id="glDate">—</div>
+        </div>
+        <div style="padding:8px 0;" id="glTable">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Compare -->
+      <div class="chart-panel">
+        <div class="panel-header"><div class="panel-title">Compare Stocks</div></div>
+        <div class="compare-inputs">
+          <select id="cmpSym1"></select>
+          <div class="vs-label">vs</div>
+          <select id="cmpSym2"></select>
+          <button class="cmp-btn" onclick="runCompare()">→</button>
+        </div>
+        <div class="compare-result" id="compareResult">
+          <div class="empty">Select two symbols and press →</div>
+        </div>
+      </div>
+
+      <!-- Sector breakdown -->
+      <div class="chart-panel">
+        <div class="panel-header"><div class="panel-title">Sector Performance</div></div>
+        <div style="padding:12px 20px;" id="sectorBars">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<script>
+const API = '';  // same origin
+let currentSymbol = null;
+let currentDays = 30;
+let companies = [];
+let priceChart = null;
+let glMode = 'gainers';
+
+// ─── CLOCK ──────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-IN', { hour12: false,
+      timeZone:'Asia/Kolkata', hour:'2-digit',minute:'2-digit',second:'2-digit' })
+    + ' IST';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── TOAST ──────────────────────────────────────────────
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ─── FETCH WRAPPER ───────────────────────────────────────
+async function apiFetch(path) {
+  const r = await fetch(API + path);
+  if (!r.ok) throw new Error(`${r.status}`);
+  return r.json();
+}
+
+// ─── LOAD COMPANIES ──────────────────────────────────────
+async function loadCompanies(sectorFilter = 'ALL') {
+  try {
+    const data = await apiFetch('/api/companies');
+    companies = data;
+
+    // Populate compare selects
+    ['cmpSym1','cmpSym2'].forEach((id, i) => {
+      const sel = document.getElementById(id);
+      sel.innerHTML = data.map(c =>
+        `<option value="${c.symbol}">${c.symbol}</option>`).join('');
+      if (i === 1 && data.length > 1) sel.selectedIndex = 1;
+    });
+
+    // Fetch latest prices for sidebar
+    const summaries = await Promise.all(
+      data.map(c => apiFetch(`/api/summary/${c.symbol}`).catch(() => null))
+    );
+
+    const list = document.getElementById('companyList');
+    const filtered = sectorFilter === 'ALL' ? data
+      : data.filter(c => c.sector === sectorFilter);
+
+    list.innerHTML = filtered.map(c => {
+      const s = summaries.find(x => x && x.symbol === c.symbol);
+      const ret = s ? (s.avg_daily_return_pct || 0) : 0;
+      const price = s ? s.latest_close : '—';
+      const dir = ret >= 0 ? 'up' : 'down';
+      const sign = ret >= 0 ? '+' : '';
+      return `
+        <div class="company-item" data-symbol="${c.symbol}" onclick="selectCompany('${c.symbol}')">
+          <div class="ci-top">
+            <span class="ci-symbol">${c.symbol}</span>
+            <span class="ci-price">₹${typeof price === 'number' ? price.toFixed(2) : price}</span>
+          </div>
+          <div class="ci-name">${c.name}</div>
+          <div class="ci-bottom">
+            <span class="ci-sector">${c.sector}</span>
+            <span class="ci-return ${dir}">${sign}${ret.toFixed(2)}%</span>
+          </div>
+        </div>`;
+    }).join('');
+  } catch(e) {
+    document.getElementById('companyList').innerHTML =
+      `<div class="empty">Failed to load companies</div>`;
+  }
+}
+
+// ─── SELECT COMPANY ──────────────────────────────────────
+async function selectCompany(symbol) {
+  currentSymbol = symbol;
+  currentDays = 30;
+
+  document.querySelectorAll('.company-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.symbol === symbol));
+  document.querySelectorAll('.tf-btn[data-days]').forEach(b =>
+    b.classList.toggle('active', parseInt(b.dataset.days) === currentDays));
+
+  document.getElementById('welcomePane').style.display = 'none';
+  document.getElementById('dashPane').style.display = 'flex';
+
+  await Promise.all([
+    loadSummary(symbol),
+    loadChart(symbol, currentDays),
+    loadGainersLosers(),
+    loadSector(),
+  ]);
+}
+
+// ─── SUMMARY KPIS ────────────────────────────────────────
+async function loadSummary(symbol) {
+  try {
+    const s = await apiFetch(`/api/summary/${symbol}`);
+    document.getElementById('chartTitle').textContent = `${s.symbol} — ${s.name}`;
+    document.getElementById('kpiClose').textContent = `₹${s.latest_close?.toFixed(2)}`;
+    document.getElementById('kpiDate').textContent = s.latest_date;
+    document.getElementById('kpiHigh').textContent = `₹${s.high_52w?.toFixed(2)}`;
+    document.getElementById('kpiLow').textContent  = `₹${s.low_52w?.toFixed(2)}`;
+    const r = s.avg_daily_return_pct || 0;
+    const retEl = document.getElementById('kpiReturn');
+    retEl.textContent = `${r >= 0 ? '+' : ''}${r.toFixed(3)}%`;
+    retEl.className = 'kpi-value ' + (r >= 0 ? 'up' : 'down');
+    document.getElementById('kpiVol').textContent =
+      s.avg_volatility_score ? s.avg_volatility_score.toFixed(4) : '—';
+  } catch { toast('Failed to load summary'); }
+}
+
+// ─── PRICE CHART ─────────────────────────────────────────
+async function loadChart(symbol, days) {
+  try {
+    const d = await apiFetch(`/api/data/${symbol}?days=${days}`);
+    const dates = d.data.map(r => r.date);
+    const closes = d.data.map(r => r.close);
+    const ma7    = d.data.map(r => r.ma_7);
+    const ma30   = d.data.map(r => r.ma_30);
+
+    document.getElementById('chartSub').textContent =
+      `${d.count} sessions · last ${days}D`;
+
+    if (priceChart) priceChart.destroy();
+
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 240);
+    grad.addColorStop(0,  'rgba(0,229,160,0.18)');
+    grad.addColorStop(1,  'rgba(0,229,160,0)');
+
+    priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dates,
+        datasets: [
+          {
+            label: 'Close',
+            data: closes,
+            borderColor: '#00e5a0',
+            borderWidth: 2,
+            fill: true,
+            backgroundColor: grad,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+          },
+          {
+            label: 'MA7',
+            data: ma7,
+            borderColor: '#ffc94d',
+            borderWidth: 1.5,
+            fill: false,
+            tension: 0.3,
+            pointRadius: 0,
+            borderDash: [4,3],
+          },
+          {
+            label: 'MA30',
+            data: ma30,
+            borderColor: '#0ff',
+            borderWidth: 1.5,
+            fill: false,
+            tension: 0.3,
+            pointRadius: 0,
+            borderDash: [8,4],
+            borderDashOffset: 2,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            ticks: { color: '#3d5468', font: { family: 'IBM Plex Mono', size: 9 },
+              maxTicksLimit: 8, maxRotation: 0 },
+            grid: { color: '#1e2d3d' },
+          },
+          y: {
+            ticks: { color: '#3d5468', font: { family: 'IBM Plex Mono', size: 9 },
+              callback: v => '₹' + v.toFixed(0) },
+            grid: { color: '#1e2d3d' },
+          }
+        },
+        plugins: {
+          legend: {
+            labels: { color: '#6e8a9e', font: { family: 'IBM Plex Mono', size: 10 },
+              boxWidth: 20, boxHeight: 1 }
+          },
+          tooltip: {
+            backgroundColor: '#131c27',
+            borderColor: '#1e2d3d',
+            borderWidth: 1,
+            titleColor: '#c8d8e8',
+            bodyColor: '#6e8a9e',
+            titleFont: { family: 'IBM Plex Mono', size: 11 },
+            bodyFont: { family: 'IBM Plex Mono', size: 10 },
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ₹${ctx.parsed.y?.toFixed(2)}`
+            }
+          }
+        }
+      }
+    });
+  } catch(e) { toast('Chart load failed'); }
+}
+
+// ─── TIME FILTER BUTTONS ─────────────────────────────────
+document.querySelectorAll('.tf-btn[data-days]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    if (!currentSymbol) return;
+    currentDays = parseInt(btn.dataset.days);
+    document.querySelectorAll('.tf-btn[data-days]').forEach(b =>
+      b.classList.toggle('active', b === btn));
+    await loadChart(currentSymbol, currentDays);
+  });
+});
+
+// ─── GAINERS / LOSERS ────────────────────────────────────
+async function loadGainersLosers() {
+  try {
+    const data = await apiFetch(`/api/${glMode}`);
+    document.getElementById('glDate').textContent = data.date;
+    document.getElementById('glTable').innerHTML = `
+      <table class="data-table">
+        <thead><tr><th>Symbol</th><th>Close</th><th>Return</th></tr></thead>
+        <tbody>
+          ${data.data.map(r => {
+            const dir = r.daily_return >= 0 ? 'up' : 'down';
+            const sign = r.daily_return >= 0 ? '+' : '';
+            return `<tr>
+              <td><span style="cursor:pointer;color:var(--accent)" onclick="selectCompany('${r.symbol}')">${r.symbol}</span></td>
+              <td>₹${r.close?.toFixed(2)}</td>
+              <td class="${dir}">${sign}${(r.daily_return*100).toFixed(2)}%</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  } catch { document.getElementById('glTable').innerHTML = '<div class="empty">No data</div>'; }
+}
+
+function toggleGainersLosers() {
+  glMode = glMode === 'gainers' ? 'losers' : 'gainers';
+  const btn = document.getElementById('glToggle');
+  btn.textContent = glMode === 'gainers' ? 'Top Gainers' : 'Top Losers';
+  btn.classList.toggle('active', true);
+  loadGainersLosers();
+}
+
+// ─── COMPARE ─────────────────────────────────────────────
+async function runCompare() {
+  const s1 = document.getElementById('cmpSym1').value;
+  const s2 = document.getElementById('cmpSym2').value;
+  if (s1 === s2) { toast('Pick two different symbols'); return; }
+  const el = document.getElementById('compareResult');
+  el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const d = await apiFetch(`/api/compare?symbol1=${s1}&symbol2=${s2}`);
+    const corrPct = Math.max(0, Math.min(100, ((d.correlation || 0) * 100)));
+    const corrColor = d.correlation > 0.5 ? 'var(--accent)' : d.correlation > 0 ? 'var(--yellow)' : 'var(--red)';
+
+    function col(sym, info) {
+      return `<div class="cmp-col">
+        <div class="cmp-col-title">${sym}</div>
+        <div class="cmp-metric"><span class="cmp-key">Latest</span><span class="cmp-val">₹${info.latest_close?.toFixed(2)}</span></div>
+        <div class="cmp-metric"><span class="cmp-key">52W High</span><span class="cmp-val up">₹${info.high_52w?.toFixed(2)}</span></div>
+        <div class="cmp-metric"><span class="cmp-key">52W Low</span><span class="cmp-val down">₹${info.low_52w?.toFixed(2)}</span></div>
+        <div class="cmp-metric"><span class="cmp-key">Avg Close</span><span class="cmp-val">₹${info.avg_close?.toFixed(2)}</span></div>
+        <div class="cmp-metric"><span class="cmp-key">Avg Return</span><span class="cmp-val">${info.avg_daily_return_pct?.toFixed(3)}%</span></div>
+        <div class="cmp-metric"><span class="cmp-key">Volatility</span><span class="cmp-val">${info.avg_volatility?.toFixed(4)}</span></div>
+      </div>`;
+    }
+
+    el.innerHTML = `
+      <div class="compare-cols">${col(s1, d[s1])}${col(s2, d[s2])}</div>
+      <div class="corr-row">
+        <div class="corr-label">Correlation</div>
+        <div class="corr-bar-wrap"><div class="corr-bar" style="width:${corrPct}%;background:${corrColor}"></div></div>
+        <div class="corr-label" style="color:${corrColor}">${d.correlation?.toFixed(3)} · ${d.interpretation}</div>
+      </div>`;
+  } catch { el.innerHTML = '<div class="empty">Compare failed</div>'; }
+}
+
+// ─── SECTOR ──────────────────────────────────────────────
+async function loadSector() {
+  try {
+    const data = await apiFetch('/api/sector');
+    const maxAbs = Math.max(...data.map(s => Math.abs(s.avg_return_pct)));
+    document.getElementById('sectorBars').innerHTML = data.map(s => {
+      const pct = Math.abs(s.avg_return_pct) / maxAbs * 100;
+      const color = s.avg_return_pct >= 0 ? 'var(--accent)' : 'var(--red)';
+      const sign = s.avg_return_pct >= 0 ? '+' : '';
+      return `<div class="sector-bar-row">
+        <div class="sector-name">${s.sector}</div>
+        <div class="sector-bar-bg">
+          <div class="sector-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="sector-val" style="color:${color}">${sign}${s.avg_return_pct?.toFixed(3)}%</div>
+      </div>`;
+    }).join('');
+  } catch {}
+}
+
+// ─── SECTOR FILTER BUTTONS ───────────────────────────────
+document.getElementById('sectorFilter').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadCompanies(btn.dataset.sector);
+});
+
+// ─── INIT ────────────────────────────────────────────────
+loadCompanies();
+</script>
+</body>
+</html>
